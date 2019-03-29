@@ -11,20 +11,17 @@ const URL = process.env.URL;
 
 exports.handler = async (event, context, callback) => {
     const key = event.queryStringParameters.key;
-    const match = key.match(/(\d+)x(\d+)\/(.*)/);
-    const width = parseInt(match[1], 10);
-    const height = parseInt(match[2], 10);
-    const originalKey = match[3];
+    const [width, height, name, type] = splitUrl(key);
 
-    const fileParts = originalKey.split('.');
-    const type = fileParts.pop();
+    // we make sure we don't call sharp with jpg because the method is called jpeg
+    const format = type === 'jpg' ? 'jpeg' : type;
 
     try {
-        const { Body: img } = await S3.getObject({ Bucket: BUCKET, Key: originalKey }).promise();
+        const { Body: img } = await S3.getObject({ Bucket: BUCKET, Key: `${name}.${type}` }).promise();
 
         const buff = await Sharp(img)
             .resize(width, height)
-            .toFormat(type)
+            [format]({ progressive: true })
             .toBuffer();
 
         await S3.putObject({
@@ -33,6 +30,21 @@ exports.handler = async (event, context, callback) => {
             ContentType: `image/${type}`,
             Key: key,
         }).promise();
+
+        // if right file type, make a webp copy
+        if (format === 'jpeg' || format === 'png') {
+            const webpBuff = await Sharp(img)
+                .resize(width, height)
+                .webp()
+                .toBuffer();
+
+            await S3.putObject({
+                Body: webpBuff,
+                Bucket: BUCKET,
+                ContentType: `image/webp`,
+                Key: `${snipFileType(key)}.webp`,
+            }).promise();
+        }
 
         callback(null, {
             statusCode: '301',
@@ -44,3 +56,14 @@ exports.handler = async (event, context, callback) => {
         callback(err);
     }
 };
+
+function splitUrl(str) {
+    const match = str.match(/(\d+)x(\d+)\/(.*)/);
+    const width = parseInt(match[1], 10);
+    const height = parseInt(match[2], 10);
+    return [width, height, ...match[3].split('.')];
+}
+
+function snipFileType(str) {
+    return str.replace(/\.(\w+)$/, '');
+}
