@@ -5,7 +5,7 @@ dockerimg=amazonlinux:nodejs
 all: dist
 
 image:
-	docker build --tag $(dockerimg) .
+	docker build --tag $(dockerimg) --build-arg NODEVERSION=8.10 .
 
 package: image
 	docker run --rm --volume ${PWD}/lambda:/build $(dockerimg) npm install --production
