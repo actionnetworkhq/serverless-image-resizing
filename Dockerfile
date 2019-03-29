@@ -13,8 +13,6 @@ COPY lambda/* ./
 RUN curl --silent --location https://rpm.nodesource.com/setup_8.x | bash && \
     yum install -y nodejs gcc-c++ make git sed tar which zip && \
     npm i -g n && \
-    n ${NODEVERSION} && \
-    echo "CURRENT_DIR: $(pwd)" && \
-    echo "Node version $(node --version)"
+    n ${NODEVERSION}
 
 WORKDIR /build
