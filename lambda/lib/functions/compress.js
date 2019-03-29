@@ -21,23 +21,29 @@ module.exports = async (event: S3Event, context, callback) => {
             Records: [
                 {
                     s3: {
-                        bucket: { name, key: encodedKey },
+                        bucket: { name: bucket },
+                        object: { key },
                     },
                 },
             ],
         } = event;
 
-        const key = decodeURIComponent(encodedKey.replace(/+/g, ' '));
         const ext = getFileExtension(key);
 
-        const format = type === 'jpg' ? 'jpeg' : ext;
+        const format = ext === 'jpg' ? 'jpeg' : ext;
 
         try {
+            console.log(`Begin processing on: ${key}`);
+
             const { Body: img } = await S3.getObject({ Bucket: bucket, Key: key }).promise();
+
+            console.log('Image received');
 
             const buff = await Sharp(img)
                 [format]({ progressive: true })
                 .toBuffer();
+
+            console.log('Image compressed');
 
             await S3.putObject({
                 Body: buff,
@@ -45,6 +51,8 @@ module.exports = async (event: S3Event, context, callback) => {
                 ContentType: `image/${format}`,
                 Key: key,
             }).promise();
+
+            console.log('Image re-uploaded');
         } catch (err) {
             console.log(err);
             callback(err);
