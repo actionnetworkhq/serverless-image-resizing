@@ -11,11 +11,10 @@ WORKDIR /tmp
 COPY lambda/* ./
 
 RUN curl --silent --location https://rpm.nodesource.com/setup_8.x | bash && \
-    yum install -y nodejs gcc-c++ make git sed tar which && \
+    yum install -y nodejs gcc-c++ make git sed tar which zip && \
     npm i -g n && \
     n ${NODEVERSION} && \
-    npm install && \
-    npm cache clean --force && \
-    yum clean all
+    echo "CURRENT_DIR: $(pwd)" && \
+    echo "Node version $(node --version)"
 
 WORKDIR /build

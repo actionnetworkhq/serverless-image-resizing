@@ -1,7 +1,7 @@
 'use strict';
 
-const resize = require('./lib/resize');
-const compress = require('./lib/compress');
+const resize = require('./lib/functions/resize');
+const compress = require('./lib/functions/compress');
 
 module.exports = {
     resize,
