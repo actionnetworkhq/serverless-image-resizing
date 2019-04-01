@@ -28,9 +28,12 @@ const buildFile = async file => {
 
     await makeSureDirExists(dir);
 
-    const { stdout } = await exec(`npx flow-remove-types ${file} > ${buildPath}`);
-
-    return stdout;
+    try {
+        await exec(`npx flow-remove-types ${file} > ${buildPath}`);
+    } catch (err) {
+        console.error(err.stderr);
+        throw new Error(`Could not build file '${file}'`);
+    }
 };
 
 const run = async () => {
@@ -40,9 +43,10 @@ const run = async () => {
 
     for (const chunk of chunked) {
         try {
-            await Promise.all(chunk.map(f => buildFile(f).catch(err => console.error)));
+            await Promise.all(chunk.map(f => buildFile(f)));
         } catch (err) {
             console.error(err);
+            process.exit(1);
         }
     }
 };

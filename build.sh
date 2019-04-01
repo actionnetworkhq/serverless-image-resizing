@@ -20,34 +20,34 @@ rm -rf node_modules
 npm i --only=dev
 
 # Run our builder, which transpiles flow-typed js
-BUILD_DIR=$LAMBDABUILDDIR ./build.js
+if BUILD_DIR=$LAMBDABUILDDIR ./build.js; then
+    # If the sharp version for $NODEVERSION doesn't exist
+    # Then build it (can take a bit)
+    if [ ! -f $PROJECTDIR/dist/sharp_$NODEVERSION.zip ]; then
+        docker build --tag $DOCKERIMG --build-arg NODEVERSION=$NODEVERSION ../
+        docker run --rm --volume $PROJECTDIR/$TEMPDIR:/build $DOCKERIMG npm install --production
+        cd node_modules/sharp; \
+        zip -FS -q -r $PROJECTDIR/dist/sharp_$NODEVERSION.zip *
+        cd $PROJECTDIR/$TEMPDIR
+        docker rmi --force $DOCKERIMG
+    fi
 
-# If the sharp version for $NODEVERSION doesn't exist
-# Then build it (can take a bit)
-if [ ! -f $PROJECTDIR/dist/sharp_$NODEVERSION.zip ]; then
-    docker build --tag $DOCKERIMG --build-arg NODEVERSION=$NODEVERSION ../
-    docker run --rm --volume $PROJECTDIR/$TEMPDIR:/build $DOCKERIMG npm install --production
-    cd node_modules/sharp; \
-	zip -FS -q -r $PROJECTDIR/dist/sharp_$NODEVERSION.zip *
-    cd $PROJECTDIR/$TEMPDIR
+    cd $LAMBDABUILDDIR
+    cp ../package.json ./
+
+    # Install production dependencies in our lambda build
+    npm i --only=prod
+
+    # IMPORTANT: Remove old sharp that will not work
+    rm -rf node_modules/sharp/*
+
+    # Unpackage the built sharp version
+    unzip -o $PROJECTDIR/dist/sharp_$NODEVERSION.zip -d node_modules/sharp/
+
+    # Zip lambda function
+    zip -FS -q -r $PROJECTDIR/dist/function.zip *
+
+    # clean up
+    cd $PROJECTDIR
+    rm -rf $TEMPDIR
 fi
-
-cd $LAMBDABUILDDIR
-cp ../package.json ./
-
-# Install production dependencies in our lambda build
-npm i --only=prod
-
-# IMPORTANT: Remove old sharp that will not work
-rm -rf node_modules/sharp/*
-
-# Unpackage the built sharp version
-unzip -o $PROJECTDIR/dist/sharp_$NODEVERSION.zip -d node_modules/sharp/
-
-# Zip lambda function
-zip -FS -q -r $PROJECTDIR/dist/function.zip *
-
-# clean up
-cd $PROJECTDIR
-rm -rf $TEMPDIR
-docker rmi --force $DOCKERIMG
