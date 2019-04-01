@@ -15,7 +15,7 @@ sed -e "s/REGION/${region}/g" -e "s/ACCOUNT_ID/${account_id}/g" \
 
 aws s3 mb "s3://${bucket_name}"
 
-../build.sh
+./build.sh
 
 aws cloudformation package \
   --output-template-file=deploy/output.yaml \
