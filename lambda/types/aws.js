@@ -41,3 +41,13 @@ declare type S3EventRecord = {
 declare type S3Event = {
     Records: Array<S3EventRecord>,
 };
+
+delcare type S3Tag = {
+    Key: string,
+    Value: string,
+}
+
+declare type S3Tagging = {
+    TagSet: Array<S3Tag>,
+    VersionId: string
+}

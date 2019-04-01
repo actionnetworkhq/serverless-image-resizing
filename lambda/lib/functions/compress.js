@@ -4,6 +4,8 @@
 const AWS = require('aws-sdk');
 const Sharp = require('sharp');
 const path = require('path');
+const awsUtil = require('../util/aws');
+const qs = require('querystring');
 
 const S3 = new AWS.S3({
     signatureVersion: 'v4',
@@ -15,44 +17,72 @@ const getFileExtension = (filename: string) =>
         .split('.')
         .join('');
 
-module.exports = async (event: S3Event, context, callback) => {
-    if (event.Records.length) {
-        const {
+type CompressS3Event = S3Event & {
+    method?: 'manual',
+    bucket?: string,
+    key?: string,
+    region?: string,
+};
+
+module.exports = async (event: CompressS3Event, context, callback) => {
+    let bucket: string, key: string, region: string;
+
+    if (event.method && event.method === 'manual') {
+        ({ bucket, key, region } = event);
+    } else if (event.Records && event.Records.length) {
+        ({
             Records: [
                 {
+                    awsRegion: region,
                     s3: {
                         bucket: { name: bucket },
                         object: { key },
                     },
                 },
             ],
-        } = event;
+        } = event);
+    }
 
+    console.log(`Starting with bucket '${bucket}', file '${key}'`);
+
+    if (bucket && key) {
         const ext = getFileExtension(key);
 
         const format = ext === 'jpg' ? 'jpeg' : ext;
 
         try {
-            console.log(`Begin processing on: ${key}`);
+            console.log(`Checking if '${key}' has been processed...`);
 
-            const { Body: img } = await S3.getObject({ Bucket: bucket, Key: key }).promise();
+            const tagging: S3Tagging = await S3.getObjectTagging({ Bucket: bucket, Key: key }).promise();
+            const tags = awsUtil.transformS3ObjectTagging(tagging);
 
-            console.log('Image received');
+            if (tags.compressed) {
+                console.log(`File '${key}' already compressed.`);
+            } else {
+                console.log(`Begin processing on: ${key}`);
 
-            const buff = await Sharp(img)
-                [format]({ progressive: true })
-                .toBuffer();
+                const { Body: img } = await S3.getObject({ Bucket: bucket, Key: key }).promise();
 
-            console.log('Image compressed');
+                console.log('Image received');
 
-            await S3.putObject({
-                Body: buff,
-                Bucket: bucket,
-                ContentType: `image/${format}`,
-                Key: key,
-            }).promise();
+                const buff = await Sharp(img)
+                    [format]({ progressive: true })
+                    .toBuffer();
 
-            console.log('Image re-uploaded');
+                console.log('Image compressed');
+
+                await S3.putObject({
+                    Body: buff,
+                    Bucket: bucket,
+                    ContentType: `image/${format}`,
+                    Key: key,
+                    Tagging: qs.stringify({ ...tags, compressed: true }),
+                }).promise();
+
+                console.log('Image re-uploaded');
+            }
+
+            callback(null);
         } catch (err) {
             console.log(err);
             callback(err);
