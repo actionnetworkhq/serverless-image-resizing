@@ -63,6 +63,12 @@ module.exports = async (event: CompressS3Event, context, callback) => {
 
                 const { Body: img } = await S3.getObject({ Bucket: bucket, Key: key }).promise();
 
+                const baseParams = {
+                    Bucket: bucket,
+                    Tagging: qs.stringify({ ...tags, compressed: true }),
+                    ACL: 'public-read',
+                    CacheControl: 'max-age=31536000, immutable',
+                };
                 console.log('Image received');
 
                 const buff = await Sharp(img)
@@ -72,14 +78,31 @@ module.exports = async (event: CompressS3Event, context, callback) => {
                 console.log('Image compressed');
 
                 await S3.putObject({
+                    ...baseParams,
                     Body: buff,
-                    Bucket: bucket,
                     ContentType: `image/${format}`,
                     Key: key,
-                    Tagging: qs.stringify({ ...tags, compressed: true }),
                 }).promise();
 
                 console.log('Image re-uploaded');
+
+                // if right file type, make a webp copy
+                if (format === 'jpeg' || format === 'png') {
+                    console.log('Begin processing webp..');
+                    const webpBuff = await Sharp(img)
+                        .webp()
+                        .toBuffer();
+
+                    console.log('Webp compressed');
+
+                    await S3.putObject({
+                        ...baseParams,
+                        Body: webpBuff,
+                        ContentType: `image/webp`,
+                        Key: `${awsUtil.snipFileType(key)}.webp`,
+                    }).promise();
+                    console.log('Webp uploaded');
+                }
             }
 
             callback(null);

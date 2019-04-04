@@ -9,6 +9,11 @@ const transformS3ObjectTagging = (tagging: S3Tagging) => {
     }, {});
 };
 
+function snipFileType(str) {
+    return str.replace(/\.(\w+)$/, '');
+}
+
 module.exports = {
+    snipFileType,
     transformS3ObjectTagging,
 };
