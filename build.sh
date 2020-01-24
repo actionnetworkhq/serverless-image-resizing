@@ -2,10 +2,11 @@
 
 # Variables we use
 DOCKERIMG=amazonlinux:nodejs
-NODEVERSION=8.10
+NODEVERSION=12
 PROJECTDIR=$(pwd)
 TEMPDIR=tmp
 LAMBDABUILDDIR=build
+S3PREFIX=action-lambdas/applications/serverless-image-resizing
 
 # Create a temp directory and operate in it
 # So we don't fork anything up
@@ -42,10 +43,13 @@ if BUILD_DIR=$LAMBDABUILDDIR ./build.js; then
     rm -rf node_modules/sharp/*
 
     # Unpackage the built sharp version
-    unzip -o $PROJECTDIR/dist/sharp_$NODEVERSION.zip -d node_modules/sharp/
+    unzip -q -o $PROJECTDIR/dist/sharp_$NODEVERSION.zip -d node_modules/sharp/
 
     # Zip lambda function
     zip -FS -q -r $PROJECTDIR/dist/function.zip *
+
+    # Push to S3
+    aws s3 cp $PROJECTDIR/dist/function.zip s3://$S3PREFIX/node-$NODEVERSION.zip
 
     # clean up
     cd $PROJECTDIR

@@ -13,12 +13,17 @@ const URL = process.env.URL;
 
 function splitUrl(str) {
     const match = str.match(/(\d+)x(\d+)\/(.*)/);
+
+    if (!match) {
+        throw new Error(`No match for '${str}'`);
+    }
+
     const width = parseInt(match[1], 10);
     const height = parseInt(match[2], 10);
     return [width, height, ...match[3].split('.')];
 }
 
-module.exports = async (event, context, callback) => {
+module.exports = async (event) => {
     const {
         queryStringParameters: { key },
     } = event;
@@ -78,20 +83,20 @@ module.exports = async (event, context, callback) => {
 
         console.log('Resize complete');
 
-        callback(null, {
+        return {
             statusCode: '301',
             headers: { location: `${URL}/${key}` },
             body: '',
-        });
+        };
     } catch (err) {
         console.error(err);
-        callback(err);
+        throw err;
     }
 };
 
 async function tryGetObject(name) {
     const types = ['webp', 'jpg', 'png', 'jpeg'];
-    for (let type of types) {
+    for (const type of types) {
         try {
             const result = await S3.getObject({ Bucket: BUCKET, Key: `${name}.${type}` }).promise();
             if (result) {
