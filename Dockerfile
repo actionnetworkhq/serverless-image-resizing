@@ -1,17 +1,18 @@
-FROM amazonlinux
+FROM amazonlinux:latest
+
+# Relies on this being set via:
+#   docker build --build-args NODEVERSION=<version> .
+ARG NODEVERSION
 
 ADD etc/nodesource.gpg.key /etc
 
 WORKDIR /tmp
 
-RUN yum -y install gcc-c++ && \
-    rpm --import /etc/nodesource.gpg.key && \
-    curl --location --output ns.rpm https://rpm.nodesource.com/pub_6.x/el/7/x86_64/nodejs-6.10.1-1nodesource.el7.centos.x86_64.rpm && \
-    rpm --checksig ns.rpm && \
-    rpm --install --force ns.rpm && \
-    npm install -g npm@latest && \
-    npm cache clean --force && \
-    yum clean all && \
-    rm --force ns.rpm
+COPY lambda/* ./
+
+RUN curl --silent --location https://rpm.nodesource.com/setup_12.x | bash && \
+    yum install -y nodejs gcc-c++ make git sed tar which zip && \
+    npm i -g n && \
+    n ${NODEVERSION}
 
 WORKDIR /build
