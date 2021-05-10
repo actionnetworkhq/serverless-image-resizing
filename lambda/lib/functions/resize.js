@@ -15,7 +15,8 @@ function splitUrl(str) {
     const match = str.match(/(\d+)x(\d+)\/(.*)/);
 
     if (!match) {
-        throw new Error(`No match for '${str}'`);
+        log.error(`No match for "${str}"`);
+        return false;
     }
 
     const width = parseInt(match[1], 10);
@@ -23,13 +24,36 @@ function splitUrl(str) {
     return [width, height, ...match[3].split('.')];
 }
 
+async function fallbackResponse(key) {
+    try {
+            log.info('Fallback to original item requested');
+            const { Body: body } = await S3.getObject({ Bucket: BUCKET, Key: key }).promise();
+            if (body) {
+                log.info('Fallback item found successfully');
+                return {
+                    statusCode: '200',
+                    body,
+                };
+            }
+        } catch (e) {
+            log.info(`No fallback item found for key: ${key}`);
+            return {
+                statusCode: '404',
+                body: 'Not Found',
+            };
+        }
+
 module.exports = async (event) => {
     const {
         queryStringParameters: { key },
     } = event;
 
     console.log('Starting new resize, key: ', key);
-    const [width, height, name, type] = splitUrl(key);
+    const result = splitUrl(key);
+    if (!result) {
+        return fallbackResponseKey(key);
+    }
+    const [width, height, name, type] = result;
 
     // we make sure we don't call sharp with jpg because the method is called jpeg
     const format = type === 'jpg' ? 'jpeg' : type;
