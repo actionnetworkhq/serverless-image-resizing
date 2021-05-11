@@ -26,22 +26,23 @@ function splitUrl(str) {
 
 async function fallbackResponse(key) {
     try {
-            log.info('Fallback to original item requested');
-            const { Body: body } = await S3.getObject({ Bucket: BUCKET, Key: key }).promise();
-            if (body) {
-                log.info('Fallback item found successfully');
-                return {
-                    statusCode: '200',
-                    body,
-                };
-            }
-        } catch (e) {
-            log.info(`No fallback item found for key: ${key}`);
+        log.info('Fallback to original item requested');
+        const { Body: body } = await S3.getObject({ Bucket: BUCKET, Key: key }).promise();
+        if (body) {
+            log.info('Fallback item found successfully');
             return {
-                statusCode: '404',
-                body: 'Not Found',
+                statusCode: '200',
+                body,
             };
         }
+    } catch (e) {
+        log.info(`No fallback item found for key: ${key}`);
+        return {
+            statusCode: '404',
+            body: 'Not Found',
+        };
+    }
+};
 
 module.exports = async (event) => {
     const {
